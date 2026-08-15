@@ -45,6 +45,7 @@ model User {
   memberProfile           MemberProfile?
   supportPartnerProfile   SupportPartnerProfile?
   professionalLeadProfile ProfessionalLeadProfile?
+  authoredContextEntries  ContextLedgerEntry[]
 
   @@index([orgId])
   @@map("users")
@@ -70,15 +71,20 @@ model Cohort {
 }
 
 model MemberProfile {
-  id        String   @id @default(uuid())
-  userId    String   @unique @map("user_id")
-  cohortId  String?  @map("cohort_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid())
+  userId       String   @unique @map("user_id")
+  cohortId     String?  @map("cohort_id")
+  // Default visibility per ContextCategory, e.g. {"GOAL": "COHORT"} — what
+  // a new entry's visibility pre-fills to. Config the Member controls
+  // themselves, not a hardcoded default per category.
+  sharingPrefs Json?    @map("sharing_prefs")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-  user       User        @relation(fields: [userId], references: [id])
-  cohort     Cohort?     @relation(fields: [cohortId], references: [id])
-  careCircle CareCircle?
+  user           User                 @relation(fields: [userId], references: [id])
+  cohort         Cohort?              @relation(fields: [cohortId], references: [id])
+  careCircle     CareCircle?
+  contextEntries ContextLedgerEntry[]
 
   @@index([cohortId])
   @@map("member_profiles")
@@ -162,4 +168,47 @@ model CareCircleMembership {
   @@index([careCircleId])
   @@index([supportPartnerId])
   @@map("care_circle_memberships")
+}
+
+enum ContextCategory {
+  GOAL
+  PREFERENCE
+  NOTE
+}
+
+// Who can read an entry, in ascending order of reach. Chosen per entry at
+// creation time (pre-filled from MemberProfile.sharingPrefs), not a fixed
+// property of the category — a Member may have one GOAL they want their
+// whole cohort to see and another they keep to their Circle only.
+enum ContextVisibility {
+  MEMBER_ONLY
+  CIRCLE
+  COHORT
+  ORG
+}
+
+// Append-only by construction: "editing" an entry never updates its
+// content — it creates a new row with supersedesId pointing at the old
+// one, and flips the old row's isCurrent to false. The historical text is
+// never destroyed, only superseded. See server/data/contextEntries.ts for
+// the SessionScope + visibility filtering that decides who can read which
+// rows.
+model ContextLedgerEntry {
+  id           String            @id @default(uuid())
+  memberId     String            @map("member_id")
+  category     ContextCategory
+  content      String
+  visibility   ContextVisibility @default(CIRCLE)
+  createdById  String            @map("created_by_id")
+  supersedesId String?           @unique @map("supersedes_id")
+  isCurrent    Boolean           @default(true) @map("is_current")
+  createdAt    DateTime          @default(now()) @map("created_at")
+
+  member       MemberProfile       @relation(fields: [memberId], references: [id])
+  createdBy    User                @relation(fields: [createdById], references: [id])
+  supersedes   ContextLedgerEntry? @relation("EntryVersionChain", fields: [supersedesId], references: [id])
+  supersededBy ContextLedgerEntry? @relation("EntryVersionChain")
+
+  @@index([memberId, isCurrent])
+  @@map("context_ledger_entries")
 }

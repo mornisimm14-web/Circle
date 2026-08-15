@@ -25,6 +25,7 @@ export default async function MemberDashboardPage() {
       nav={[
         { label: "Dashboard", href: "/member/dashboard" },
         { label: "My Circle", href: "/member/circle" },
+        { label: "My Context", href: "/member/context" },
       ]}
     >
       <div className="border-border mt-8 max-w-sm rounded-2xl border p-5">

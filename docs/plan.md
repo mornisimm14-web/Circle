@@ -471,6 +471,13 @@ Goal: a single, protected place for a Member's ongoing context.
 4. `/member/context` — a ledger table + manual entry creation + `sharingPrefs` management.
    **Test**: a Partner not assigned to a given Member gets an empty list when querying that Member's context (scope enforcement works at the query level, not just in the UI).
 
+**Scope notes (added after initial build)**:
+- Visibility is a ladder (`MEMBER_ONLY` < `CIRCLE` < `COHORT` < `ORG`), chosen per entry at creation time — not a fixed property of the category. `getContextEntries()` resolves which visibility levels the caller can read (or `"OWN"` for the Member themselves, who always sees everything) before querying, so an unauthorized caller's query returns `[]` rather than a filtered/redacted view.
+- `MemberProfile.sharingPrefs` (a `Json?` field, category → default visibility) pre-fills the "+ Add entry" form's visibility for the default-selected category; it's editable via the "Sharing preferences" panel on the same screen. Sprint 4's Capture flow is the next consumer of this field, once Partners can write entries too.
+- Sprint 3 scope is Member-authored entries only — `createContextEntryAction` requires the `MEMBER` role. `ContextLedgerEntry.createdById` already points at any `User`, not just Members, so Sprint 4 (Partner-authored entries via Capture) is a new caller, not a schema change.
+- **Real bug caught during verification**: the "+ Add entry" form's visibility `<select>` had no `defaultValue`, so an unselected dropdown silently submitted the browser's default first option (`MEMBER_ONLY`) instead of the intended `CIRCLE` — an entry could end up more private than the Member meant, with no indication in the UI. Caught by a script that verified the actual DB rows after a UI-driven creation, not by the UI test alone (the UI test only checked that *an* entry appeared, not its stored visibility). Fixed by giving the select an explicit default sourced from `sharingPrefs`, and simplified `createContextEntryAction` to trust the form's value directly instead of duplicating a fallback both places.
+- Verified end-to-end: create/edit(versioning)/filter/sharing-prefs through the UI, plus a direct data-layer script exercising `getContextEntries()` with hand-built `SessionScope`s — confirms an unassigned Partner gets `[]`, an assigned Partner sees `CIRCLE`-visible entries but never `MEMBER_ONLY` ones, and a Lead outside the Member's cohort gets `[]` too.
+
 ### Sprint 4 — Partner Workflow: Prepare + Capture (including audio)
 
 Goal: the product's centerpiece feature — this is where AI enters the picture for the first time.

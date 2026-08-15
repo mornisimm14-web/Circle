@@ -25,6 +25,7 @@ export default async function MemberCirclePage() {
       nav={[
         { label: "Dashboard", href: "/member/dashboard" },
         { label: "My Circle", href: "/member/circle" },
+        { label: "My Context", href: "/member/context" },
       ]}
     >
       {!careCircle ? (
