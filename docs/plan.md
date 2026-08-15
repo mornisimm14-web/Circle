@@ -78,7 +78,9 @@ Before writing code, this is how each role is meant to experience the system: te
 
 ### Core Principle: One Site, Not Several Systems
 
-**CIRCLE is a single, unified Next.js application.** There is no separate Member app vs. Partner app, etc. — everyone signs in on the same domain, through the same `/login` screen. **Internal routing** (the `(member)`/`(partner)`/`(lead)`/`(admin)` route groups defined in the folder structure below) is what determines which dashboard a user sees, based solely on the `User.role` stored in their session — not a separate address or domain. `proxy.ts` (Next.js 16 renamed the `middleware.ts` convention to `proxy.ts`, exporting a `proxy` function instead of `middleware`) is the gate: after login it reads the role from the JWT session and redirects to the correct root path; if a MEMBER user manually types a URL like `/admin/...`, the proxy blocks it and sends them back to their own area. So even though it's "one site," there's no access leakage between roles.
+**CIRCLE is a single, unified Next.js application.** There is no separate Member app vs. Partner app, etc. — everyone signs in on the same domain, through the same `/login` screen. **Internal routing** (the real `member`/`partner`/`lead`/`admin` path segments defined in the folder structure below — plain folders, not route groups: App Router route groups like `(auth)` deliberately don't add a path segment, and using `(member)`/`(partner)`/`(lead)`/`(admin)` for this actually collided, since `(member)/dashboard` and `(partner)/dashboard` both resolve to `/dashboard` — fixed during Sprint 1) is what determines which dashboard a user sees, based solely on the `User.role` stored in their session — not a separate address or domain. `proxy.ts` (Next.js 16 renamed the `middleware.ts` convention to `proxy.ts`, exporting a `proxy` function instead of `middleware`) is the gate: after login it reads the role from the JWT session and redirects to the correct root path; if a MEMBER user manually types a URL like `/admin/...`, the proxy blocks it and sends them back to their own area. So even though it's "one site," there's no access leakage between roles.
+
+Post-login, the Credentials Server Action redirects to `/post-login` rather than straight to `/` — the login screen's "back to home" link gets prefetched by Next.js, which can cache an unauthenticated RSC payload for `/`; landing there right after sign-in could silently reuse that stale cache instead of re-rendering as the signed-in user. `/post-login` is never linked or prefetched anywhere, so it always renders fresh, reads the session, and forwards to the real role home.
 
 ### Public Screen: Landing Page (`/`) — No Login Required
 
@@ -339,11 +341,12 @@ circle/
     app/
       page.tsx                        # Public landing page — / (Sprint 0)
       layout.tsx                       # Root layout: fonts, theme, providers
+      post-login/page.tsx              # Resolves role -> redirect; see Sprint 1 note below
       (auth)/login/page.tsx
-      (member)/{dashboard,circle,context}/page.tsx
-      (partner)/{dashboard, prep/[memberId], capture/[interactionId]}/page.tsx
-      (lead)/{review-queue, review-queue/[id], coaching}/page.tsx
-      (admin)/{cohorts, analytics, settings}/page.tsx
+      member/{dashboard,circle,context}/page.tsx
+      partner/{dashboard, prep/[memberId], capture/[interactionId]}/page.tsx
+      lead/{review-queue, review-queue/[id], coaching}/page.tsx
+      admin/{cohorts, analytics, settings}/page.tsx
       api/auth/[...nextauth]/route.ts
       api/audio/[interactionId]/route.ts   # permission-gated audio serving, not static
     server/
@@ -433,8 +436,13 @@ Goal: turn the login screen into something that actually identifies a user and r
 4. `src/lib/db.ts` — Prisma client singleton. `src/lib/env.ts` — env validation with zod.
 5. `src/server/auth/auth.config.ts` + `src/app/api/auth/[...nextauth]/route.ts` — Auth.js, Credentials provider, bcrypt.
 6. `src/proxy.ts` — redirects unauthenticated users to `/login`; after login, redirects by role to their root path.
-7. Four **empty** dashboards (`(member)/dashboard`, `(partner)/dashboard`, `(lead)/review-queue`, `(admin)/cohorts`) — just a heading + "Hello {name}," so there's a redirect target.
+7. Four **empty** dashboards (`member/dashboard`, `partner/dashboard`, `lead/review-queue`, `admin/cohorts`) — just a heading + "Welcome back, {name}," so there's a redirect target.
    **Test**: `docker compose up -d`, `npx prisma migrate dev`, `npm run db:seed`, log in as each of the four seeded users and confirm the correct redirect; a MEMBER user manually navigating to `/admin/cohorts` is blocked.
+
+**Scope notes (added after initial build)**: two real bugs surfaced during end-to-end verification, both fixed and re-verified with an automated Playwright suite covering all 4 roles (login → correct home, cross-role blocking, `/` redirect, sign-out, post-sign-out access block):
+- **Route collision**: the dashboards were first built under route groups `(member)/dashboard`, `(partner)/dashboard`, etc. Route groups don't add a path segment, so all four resolved to the same `/dashboard` URL and Next.js refused to build. Fixed by using real folders (`member/`, `partner/`, `lead/`, `admin/`) instead — see the "Core Principle" section above.
+- **Wrong-password error not shown**: `loginAction` was re-throwing Auth.js's `AuthError` instead of redirecting back to `/login?error=CredentialsSignin`, causing an unhandled 500 instead of the intended error message.
+- **Stale post-login redirect**: signing in redirected to `/`, but the login screen's own "back to home" link gets prefetched, so the browser could reuse a cached, unauthenticated payload for `/` instead of re-rendering as the signed-in user. Fixed by redirecting to a dedicated, never-cached `/post-login` resolver page instead — see the "Core Principle" section above.
 
 ### Sprint 2 — Care Circle Model
 

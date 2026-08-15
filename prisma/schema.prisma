@@ -1,0 +1,47 @@
+// Prisma schema for CIRCLE. Sprint 1 scope: just enough to authenticate
+// and identify a user's role. Later sprints extend this file — see
+// docs/plan.md for the full model list and the reasoning behind each
+// design choice (append-only audit trail, the AI-approval status enums).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  MEMBER
+  SUPPORT_PARTNER
+  PROFESSIONAL_LEAD
+  ORG_ADMIN
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@map("organizations")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  orgId        String   @map("org_id")
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         UserRole
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+  @@map("users")
+}

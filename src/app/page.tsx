@@ -6,6 +6,7 @@
  */
 import Link from "next/link";
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { HeartHandshake, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,8 +15,19 @@ import { TopBar } from "@/components/shared/top-bar";
 import { CareCircleIllustration } from "@/components/shared/care-circle-illustration";
 import { ChatWidget } from "@/components/shared/chat-widget";
 import { SiteFooter } from "@/components/shared/site-footer";
+import { auth } from "@/server/auth/auth.config";
+import { ROLE_HOME } from "@/server/auth/role-home";
 
 export default async function LandingPage() {
+  // The login Server Action's own redirect("/") is a soft client-side
+  // navigation; proxy.ts's redirect doesn't reliably re-fire for that
+  // request type. Redirecting here — inside the page that actually
+  // renders — closes that gap for both soft and hard navigations.
+  const session = await auth();
+  if (session?.user?.role) {
+    redirect(ROLE_HOME[session.user.role]);
+  }
+
   const t = await getTranslations("landing");
 
   const values = [

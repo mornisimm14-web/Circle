@@ -43,7 +43,7 @@ describe("en messages", () => {
       "emailPlaceholder",
       "passwordLabel",
       "submit",
-      "comingSoon",
+      "invalidCredentials",
       "backToHome",
       "noAccount",
       "signUp",

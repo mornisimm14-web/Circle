@@ -1,0 +1,24 @@
+# Local dev infrastructure for CIRCLE. Postgres only for now — Whisper
+# joins in Sprint 4 for audio transcription. Host port 5433 (not 5432)
+# because the sibling dog-walking-app project already uses 5432.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: circle-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: circle
+      POSTGRES_PASSWORD: circle_dev
+      POSTGRES_DB: circle
+    ports:
+      - "5433:5432"
+    volumes:
+      - circle_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U circle -d circle"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  circle_pgdata:

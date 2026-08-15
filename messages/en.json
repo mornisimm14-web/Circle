@@ -95,7 +95,7 @@
     "emailPlaceholder": "you@example.com",
     "passwordLabel": "Password",
     "submit": "Sign in",
-    "comingSoon": "Sign-in isn't connected yet — authentication lands in the next sprint.",
+    "invalidCredentials": "Incorrect email or password. Try again.",
     "backToHome": "Back to home",
     "noAccount": "Don't have an account?",
     "signUp": "Sign up"
