@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TopBar } from "@/components/shared/top-bar";
 import { LogoMark } from "@/components/shared/logo-mark";
 import { ImagePlaceholder } from "@/components/shared/image-placeholder";
-import { FloatingSupportLink } from "@/components/shared/floating-support-link";
+import { ChatWidget } from "@/components/shared/chat-widget";
 import { SiteFooter } from "@/components/shared/site-footer";
 
 export default async function AboutPage() {
@@ -130,7 +130,7 @@ export default async function AboutPage() {
 
       <SiteFooter />
 
-      <FloatingSupportLink />
+      <ChatWidget />
     </div>
   );
 }

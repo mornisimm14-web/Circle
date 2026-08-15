@@ -127,8 +127,19 @@ describe("en messages", () => {
     }
   });
 
-  it("has the floating support link label", () => {
-    expect(en.floatingChat.label).toBeTruthy();
+  it("has every key the chat widget reads", () => {
+    for (const key of [
+      "launcherLabel",
+      "panelTitle",
+      "panelSubtitle",
+      "disclaimer",
+      "inputPlaceholder",
+      "thinking",
+      "genericError",
+      "close",
+    ] as const) {
+      expect(en.chat[key]).toBeTruthy();
+    }
   });
 
   it("has the shared nav and app name", () => {

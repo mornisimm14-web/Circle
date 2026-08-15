@@ -421,6 +421,8 @@ Goal: confirm the scaffolding works end-to-end and something real is visible in 
 5. `src/app/(auth)/login/page.tsx` — **form only**, not yet wired to real auth/DB (submit does nothing yet, or shows "coming soon").
    **Test**: `npm run dev`, see the full landing page in the browser, the "Sign in" button leads to `/login`, both pages are responsive and match the color palette.
 
+**Scope note (added after initial build)**: one small piece of backend logic landed in Sprint 0 ahead of schedule — a public FAQ chat widget (`src/app/api/chat/route.ts`, `src/components/shared/chat-widget.tsx`) answering general product questions via Claude Haiku 4.5, grounded by a system prompt (`src/server/chat/system-prompt.ts`) restricted to facts about CIRCLE. Chosen deliberately over the more expensive/slower default model since this is a cheap, public, unauthenticated endpoint. Clearly labeled as AI ("Ask AI about CIRCLE" / "CIRCLE AI Assistant") with an in-panel disclaimer — it must never read as a human Support Partner, and it refuses to give personal/clinical/crisis advice, redirecting instead to Sign up/Contact. Requires `ANTHROPIC_API_KEY` in `.env.local` (see `.env.example`); without a key it degrades gracefully to a static "not connected yet" reply rather than erroring. This is a separate, narrowly-scoped concern from the real Continuity Engine (Sprint 4) — it does not touch the DB and does not imply the product's Support Partners are AI.
+
 ### Sprint 1 — Infrastructure: Real DB + Auth
 
 Goal: turn the login screen into something that actually identifies a user and redirects by role.

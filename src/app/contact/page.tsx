@@ -7,7 +7,7 @@
 import { getTranslations } from "next-intl/server";
 import { TopBar } from "@/components/shared/top-bar";
 import { ContactForm } from "@/components/contact/contact-form";
-import { FloatingSupportLink } from "@/components/shared/floating-support-link";
+import { ChatWidget } from "@/components/shared/chat-widget";
 import { SiteFooter } from "@/components/shared/site-footer";
 
 export default async function ContactPage() {
@@ -35,7 +35,7 @@ export default async function ContactPage() {
 
       <SiteFooter />
 
-      <FloatingSupportLink />
+      <ChatWidget />
     </div>
   );
 }

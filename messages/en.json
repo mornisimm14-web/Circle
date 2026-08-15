@@ -78,8 +78,15 @@
     "directTitle": "Prefer email?",
     "directEmail": "hello@circle.app"
   },
-  "floatingChat": {
-    "label": "Ask a Support Partner"
+  "chat": {
+    "launcherLabel": "Ask AI about CIRCLE",
+    "panelTitle": "CIRCLE AI Assistant",
+    "panelSubtitle": "Answers general questions — not a Support Partner",
+    "disclaimer": "I'm an AI assistant here to answer questions about CIRCLE. I'm not a Support Partner and can't offer personal support — for that, sign up or use the Contact page.",
+    "inputPlaceholder": "Ask a question about CIRCLE...",
+    "thinking": "Thinking...",
+    "genericError": "Something went wrong — try again, or reach us through the Contact page.",
+    "close": "Close"
   },
   "login": {
     "title": "CIRCLE",

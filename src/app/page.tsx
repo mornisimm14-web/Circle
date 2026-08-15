@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TopBar } from "@/components/shared/top-bar";
 import { CareCircleIllustration } from "@/components/shared/care-circle-illustration";
-import { FloatingSupportLink } from "@/components/shared/floating-support-link";
+import { ChatWidget } from "@/components/shared/chat-widget";
 import { SiteFooter } from "@/components/shared/site-footer";
 
 export default async function LandingPage() {
@@ -167,7 +167,7 @@ export default async function LandingPage() {
 
       <SiteFooter />
 
-      <FloatingSupportLink />
+      <ChatWidget />
     </div>
   );
 }
