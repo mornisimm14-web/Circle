@@ -1,16 +1,45 @@
 /**
- * Member dashboard. Sprint 1: empty shell proving auth + role redirect
- * work — Sprint 2 adds the real Care Circle content.
+ * Member dashboard. Sprint 2 adds a Care Circle summary; the full circle
+ * view (with per-partner cards) lives at /member/circle.
  */
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth/auth.config";
 import { DashboardShell } from "@/components/shared/dashboard-shell";
+import { getOwnCareCircle } from "@/server/data/careCircles";
+import { getSessionScope } from "@/server/data/scope";
 
 export default async function MemberDashboardPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
+  const scope = await getSessionScope();
+  const careCircle = scope ? await getOwnCareCircle(scope) : null;
+  const primary = careCircle?.memberships.find((m) => m.roleInCircle === "PRIMARY");
+
   return (
-    <DashboardShell title="Dashboard" userName={session.user.name} roleLabel="Member" />
+    <DashboardShell
+      title="Dashboard"
+      userName={session.user.name}
+      roleLabel="Member"
+      nav={[
+        { label: "Dashboard", href: "/member/dashboard" },
+        { label: "My Circle", href: "/member/circle" },
+      ]}
+    >
+      <div className="border-border mt-8 max-w-sm rounded-2xl border p-5">
+        <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+          Your Circle
+        </p>
+        <p className="text-foreground mt-2 text-sm">
+          {primary
+            ? `Primary Support Partner: ${primary.supportPartner.user.name}`
+            : "No Support Partner assigned yet."}
+        </p>
+        <Link href="/member/circle" className="text-primary mt-3 inline-block text-sm underline-offset-4 hover:underline">
+          View full circle &rarr;
+        </Link>
+      </div>
+    </DashboardShell>
   );
 }

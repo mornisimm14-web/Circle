@@ -25,7 +25,8 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  users User[]
+  users   User[]
+  cohorts Cohort[]
 
   @@map("organizations")
 }
@@ -40,8 +41,125 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  org Organization @relation(fields: [orgId], references: [id])
+  org                     Organization             @relation(fields: [orgId], references: [id])
+  memberProfile           MemberProfile?
+  supportPartnerProfile   SupportPartnerProfile?
+  professionalLeadProfile ProfessionalLeadProfile?
 
   @@index([orgId])
   @@map("users")
+}
+
+// A cohort is a Professional Lead's caseload of Members and Support
+// Partners — the unit admins organize around and leads are scoped to.
+model Cohort {
+  id        String   @id @default(uuid())
+  orgId     String   @map("org_id")
+  name      String
+  leadId    String?  @unique @map("lead_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  org             Organization             @relation(fields: [orgId], references: [id])
+  lead            ProfessionalLeadProfile? @relation(fields: [leadId], references: [id])
+  memberProfiles  MemberProfile[]
+  supportPartners SupportPartnerProfile[]
+
+  @@index([orgId])
+  @@map("cohorts")
+}
+
+model MemberProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  cohortId  String?  @map("cohort_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user       User        @relation(fields: [userId], references: [id])
+  cohort     Cohort?     @relation(fields: [cohortId], references: [id])
+  careCircle CareCircle?
+
+  @@index([cohortId])
+  @@map("member_profiles")
+}
+
+model SupportPartnerProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique @map("user_id")
+  cohortId    String?  @map("cohort_id")
+  // Config-driven, not hardcoded: how many active Members this Partner
+  // can carry at once, surfaced as "caseload / cap" on their dashboard.
+  caseloadCap Int      @default(15) @map("caseload_cap")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user        User                   @relation(fields: [userId], references: [id])
+  cohort      Cohort?                @relation(fields: [cohortId], references: [id])
+  memberships CareCircleMembership[]
+
+  @@index([cohortId])
+  @@map("support_partner_profiles")
+}
+
+model ProfessionalLeadProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user   User    @relation(fields: [userId], references: [id])
+  cohort Cohort?
+
+  @@map("professional_lead_profiles")
+}
+
+// One CareCircle per Member — the container that CareCircleMembership rows
+// attach Support Partners to. Kept as its own model (rather than putting
+// membership rows straight on MemberProfile) so "the circle" is a stable
+// concept later features (Context Ledger visibility, Prep Card) can point
+// to without caring which partners currently sit in it.
+model CareCircle {
+  id        String   @id @default(uuid())
+  memberId  String   @unique @map("member_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  member      MemberProfile          @relation(fields: [memberId], references: [id])
+  memberships CareCircleMembership[]
+
+  @@map("care_circles")
+}
+
+enum CareCircleRole {
+  PRIMARY
+  SECONDARY
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// The routing join table: which Support Partner sits in which Member's
+// circle, and in what capacity. "Exactly one ACTIVE PRIMARY per circle" is
+// enforced here at the app level (see care-circle.ts) AND at the DB level
+// via a partial unique index added by raw SQL in the migration — Prisma's
+// schema DSL has no WHERE-clause index syntax, so it can't be expressed
+// here directly.
+model CareCircleMembership {
+  id               String           @id @default(uuid())
+  careCircleId     String           @map("care_circle_id")
+  supportPartnerId String           @map("support_partner_id")
+  roleInCircle     CareCircleRole   @map("role_in_circle")
+  status           MembershipStatus @default(ACTIVE)
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  careCircle     CareCircle            @relation(fields: [careCircleId], references: [id])
+  supportPartner SupportPartnerProfile @relation(fields: [supportPartnerId], references: [id])
+
+  @@index([careCircleId])
+  @@index([supportPartnerId])
+  @@map("care_circle_memberships")
 }

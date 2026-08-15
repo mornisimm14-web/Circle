@@ -455,6 +455,12 @@ Goal: the model everything else derives from — who is connected to whom.
 5. `/member/circle`, `/partner/dashboard` (caseload list) — read views built on the new model.
    **Test**: create a cohort, assign 2 partners + 1 member through the admin UI, the member sees their circle, attempting to assign a second active PRIMARY fails with a clear error.
 
+**Scope notes (added after initial build)**:
+- `getSessionScope()` (`src/server/data/scope.ts`) resolves the signed-in user's role profile id (`memberProfileId`/`partnerProfileId`/`leadProfileId`) once per request; every function in `careCircles.ts` and `cohorts.ts` takes this scope and filters by it rather than trusting the caller.
+- Assigning a User (of any role) to a cohort auto-creates their role profile row on first assignment (`assignUserToCohortAction`) — and for Members, their `CareCircle` too, since it's 1:1 and always needed once onboarded. There's no separate "provisioning" step.
+- Admin-facing mutations (`createCohortAction`, `assignUserToCohortAction`, `assignPartnerToCircleAction`, `deactivateMembershipAction`) redirect back with `?error=` on validation failure — same pattern as `login.ts` — rather than throwing and surfacing a raw Next.js error overlay.
+- Verified end-to-end with an automated Playwright script covering the full flow from the Test line above, including the duplicate-PRIMARY rejection. One real bug surfaced during that verification: the long-running dev server process still held the pre-Sprint-2 Prisma Client singleton in memory (`src/lib/db.ts`'s module-level instance persists across Turbopack route HMR), so `db.cohort` was `undefined` until the dev server was restarted after `prisma generate`. Not a code bug — a reminder that regenerating the Prisma client requires a full dev-server restart, not just a file save.
+
 ### Sprint 3 — Context Ledger
 
 Goal: a single, protected place for a Member's ongoing context.
