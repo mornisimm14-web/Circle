@@ -46,6 +46,7 @@ model User {
   supportPartnerProfile   SupportPartnerProfile?
   professionalLeadProfile ProfessionalLeadProfile?
   authoredContextEntries  ContextLedgerEntry[]
+  ownedActionItems        ActionItem[]
 
   @@index([orgId])
   @@map("users")
@@ -85,6 +86,9 @@ model MemberProfile {
   cohort         Cohort?              @relation(fields: [cohortId], references: [id])
   careCircle     CareCircle?
   contextEntries ContextLedgerEntry[]
+  interactions   Interaction[]
+  actionItems    ActionItem[]
+  aiInvocations  AIInvocationLog[]
 
   @@index([cohortId])
   @@map("member_profiles")
@@ -100,9 +104,10 @@ model SupportPartnerProfile {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  user        User                   @relation(fields: [userId], references: [id])
-  cohort      Cohort?                @relation(fields: [cohortId], references: [id])
-  memberships CareCircleMembership[]
+  user         User                   @relation(fields: [userId], references: [id])
+  cohort       Cohort?                @relation(fields: [cohortId], references: [id])
+  memberships  CareCircleMembership[]
+  interactions Interaction[]
 
   @@index([cohortId])
   @@map("support_partner_profiles")
@@ -211,4 +216,118 @@ model ContextLedgerEntry {
 
   @@index([memberId, isCurrent])
   @@map("context_ledger_entries")
+}
+
+enum CaptureMethod {
+  TYPED
+  AUDIO_UPLOAD
+}
+
+// The AI-never-finalizes-anything boundary lives here: every summary and
+// action item a Claude call produces starts PENDING_APPROVAL. Only
+// approveCaptureAction (server/actions/interactions.ts, human-triggered,
+// requireRole'd to SUPPORT_PARTNER) can move either to APPROVED — nothing
+// in continuity-engine/* has the power to.
+enum InteractionSummaryStatus {
+  PENDING_APPROVAL
+  APPROVED
+}
+
+enum ActionItemStatus {
+  PENDING_APPROVAL
+  APPROVED
+}
+
+enum AIInvocationPurpose {
+  CAPTURE_SUMMARY
+  PREP_DIGEST
+}
+
+// A single Capture event between a Support Partner and a Member — the raw
+// material (typed or transcribed) that a Claude call turns into a draft
+// InteractionSummary + ActionItem[]. Retaining audioFilePath permanently
+// (not deleting after transcription) is a deliberate product decision — see
+// docs/plan.md "Audio File Storage" — so a Lead can re-listen if a capture
+// is ever disputed.
+model Interaction {
+  id                        String        @id @default(uuid())
+  memberId                  String        @map("member_id")
+  supportPartnerId          String        @map("support_partner_id")
+  occurredAt                DateTime      @default(now()) @map("occurred_at")
+  captureMethod             CaptureMethod @default(TYPED) @map("capture_method")
+  recordingConsentConfirmed Boolean       @default(false) @map("recording_consent_confirmed")
+  audioFilePath             String?       @map("audio_file_path")
+  rawNotes                  String?       @map("raw_notes")
+  createdAt                 DateTime      @default(now()) @map("created_at")
+  updatedAt                 DateTime      @updatedAt @map("updated_at")
+
+  member         MemberProfile         @relation(fields: [memberId], references: [id])
+  supportPartner SupportPartnerProfile @relation(fields: [supportPartnerId], references: [id])
+  summary        InteractionSummary?
+  actionItems    ActionItem[]
+  aiInvocations  AIInvocationLog[]
+
+  @@index([memberId])
+  @@index([supportPartnerId])
+  @@map("interactions")
+}
+
+model InteractionSummary {
+  id            String                   @id @default(uuid())
+  interactionId String                   @unique @map("interaction_id")
+  content       String
+  status        InteractionSummaryStatus @default(PENDING_APPROVAL)
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
+
+  interaction Interaction @relation(fields: [interactionId], references: [id])
+
+  @@map("interaction_summaries")
+}
+
+// "owner" is whoever is responsible for following through — almost always
+// the Member ("Call PT clinic — owner: Alex"), modeled as a User so it can
+// point at a Partner too if a future workflow needs that.
+model ActionItem {
+  id            String           @id @default(uuid())
+  interactionId String           @map("interaction_id")
+  memberId      String           @map("member_id")
+  ownerId       String           @map("owner_id")
+  description   String
+  dueDate       DateTime?        @map("due_date")
+  status        ActionItemStatus @default(PENDING_APPROVAL)
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  interaction Interaction   @relation(fields: [interactionId], references: [id])
+  member      MemberProfile @relation(fields: [memberId], references: [id])
+  owner       User          @relation(fields: [ownerId], references: [id])
+
+  @@index([memberId])
+  @@map("action_items")
+}
+
+// Append-only audit of every LLM call — full prompt + response, per the
+// "full auditability... as the substitute for everything runs locally"
+// principle in docs/plan.md. create()-only in the data layer; Sprint 8
+// revokes UPDATE/DELETE at the DB role level alongside AuditLogEntry.
+// interactionId is nullable because PREP_DIGEST calls happen on the Prep
+// Card before any Interaction exists — memberId is always set instead, so
+// every invocation is traceable to a Member regardless of purpose.
+model AIInvocationLog {
+  id            String              @id @default(uuid())
+  interactionId String?             @map("interaction_id")
+  memberId      String              @map("member_id")
+  purpose       AIInvocationPurpose
+  model         String
+  promptText    String              @map("prompt_text")
+  responseText  String              @map("response_text")
+  createdAt     DateTime            @default(now()) @map("created_at")
+
+  interaction Interaction?  @relation(fields: [interactionId], references: [id])
+  member      MemberProfile @relation(fields: [memberId], references: [id])
+
+  @@index([interactionId])
+  @@index([memberId])
+  @@map("ai_invocation_logs")
 }

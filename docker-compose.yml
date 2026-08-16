@@ -1,6 +1,5 @@
-# Local dev infrastructure for CIRCLE. Postgres only for now — Whisper
-# joins in Sprint 4 for audio transcription. Host port 5433 (not 5432)
-# because the sibling dog-walking-app project already uses 5432.
+# Local dev infrastructure for CIRCLE. Host port 5433 (not 5432) because the
+# sibling dog-walking-app project already uses 5432.
 services:
   postgres:
     image: postgres:16-alpine
@@ -19,6 +18,22 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # Local speech-to-text for Capture's audio-upload path (Sprint 4). Raw
+  # audio never leaves this container / the local machine — only the
+  # resulting transcript continues on to Claude. `tiny` model: fast on CPU,
+  # good enough for local dev; swap ASR_MODEL for higher accuracy in
+  # production. Next.js (running locally, not in Docker) calls this over
+  # HTTP — see src/server/continuity-engine/transcription/client.ts.
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    container_name: circle-whisper
+    restart: unless-stopped
+    environment:
+      ASR_MODEL: tiny
+      ASR_ENGINE: faster_whisper
+    ports:
+      - "9000:9000"
 
 volumes:
   circle_pgdata:

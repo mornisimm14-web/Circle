@@ -3,9 +3,11 @@
  * is actively assigned to, across all their circles, against their
  * caseload cap.
  */
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/server/auth/auth.config";
 import { DashboardShell } from "@/components/shared/dashboard-shell";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getPartnerCaseload } from "@/server/data/careCircles";
 import { getSessionScope } from "@/server/data/scope";
@@ -35,6 +37,7 @@ export default async function PartnerDashboardPage() {
             <TableRow>
               <TableHead>Member</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Next action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -42,6 +45,14 @@ export default async function PartnerDashboardPage() {
               <TableRow key={membership.id}>
                 <TableCell>{membership.careCircle.member.user.name}</TableCell>
                 <TableCell>{membership.roleInCircle === "PRIMARY" ? "Primary" : "Secondary"}</TableCell>
+                <TableCell>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    nativeButton={false}
+                    render={<Link href={`/partner/prep/${membership.careCircle.memberId}`}>Prep call</Link>}
+                  />
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

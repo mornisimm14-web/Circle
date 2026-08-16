@@ -41,3 +41,9 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Uploaded audio recordings — retained permanently (see docs/plan.md
+# "Audio File Storage") but never committed; UUID filenames, no real
+# recordings belong in the repo.
+/storage/audio/*
+!/storage/audio/.gitkeep
