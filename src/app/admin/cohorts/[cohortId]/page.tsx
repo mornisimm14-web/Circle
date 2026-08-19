@@ -49,7 +49,15 @@ export default async function CohortDetailPage({
   const assignableUsers = orgUsers.filter((user) => user.role !== "ORG_ADMIN");
 
   return (
-    <DashboardShell title={cohort.name} userName={session.user.name} roleLabel="Org Admin">
+    <DashboardShell
+      title={cohort.name}
+      userName={session.user.name}
+      roleLabel="Org Admin"
+      nav={[
+        { label: "Cohorts", href: "/admin/cohorts" },
+        { label: "Settings", href: "/admin/settings" },
+      ]}
+    >
       {error && (
         <p className="bg-destructive/10 text-destructive mt-6 rounded-lg px-3 py-2 text-sm">
           {error}

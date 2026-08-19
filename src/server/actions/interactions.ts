@@ -12,6 +12,7 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { createCaptureDraft } from "@/server/continuity-engine/capture";
+import { runSurfaceAnalysis } from "@/server/continuity-engine/surface";
 import { transcribeAudio } from "@/server/continuity-engine/transcription/client";
 import { saveAudioFile } from "@/server/storage/audioStorage";
 import { getSessionScope, requireRole } from "@/server/data/scope";
@@ -215,6 +216,13 @@ export async function approveCaptureAction(formData: FormData) {
       },
     }),
   ]);
+
+  // Runs after the approve transaction commits, per docs/plan.md's
+  // Continuity Engine description ("runs synchronously right after a
+  // Capture is approved"). Not part of the transaction above — Surface
+  // only ever creates ReviewQueueItems, so a partial failure here can't
+  // corrupt the approve itself.
+  await runSurfaceAnalysis(interactionId);
 
   redirect(`/partner/dashboard`);
 }

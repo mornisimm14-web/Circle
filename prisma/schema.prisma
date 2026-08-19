@@ -25,8 +25,9 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  users   User[]
-  cohorts Cohort[]
+  users          User[]
+  cohorts        Cohort[]
+  safetyKeywords OrgSafetyKeyword[]
 
   @@map("organizations")
 }
@@ -82,13 +83,14 @@ model MemberProfile {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  user           User                 @relation(fields: [userId], references: [id])
-  cohort         Cohort?              @relation(fields: [cohortId], references: [id])
-  careCircle     CareCircle?
-  contextEntries ContextLedgerEntry[]
-  interactions   Interaction[]
-  actionItems    ActionItem[]
-  aiInvocations  AIInvocationLog[]
+  user             User                 @relation(fields: [userId], references: [id])
+  cohort           Cohort?              @relation(fields: [cohortId], references: [id])
+  careCircle       CareCircle?
+  contextEntries   ContextLedgerEntry[]
+  interactions     Interaction[]
+  actionItems      ActionItem[]
+  aiInvocations    AIInvocationLog[]
+  reviewQueueItems ReviewQueueItem[]
 
   @@index([cohortId])
   @@map("member_profiles")
@@ -241,6 +243,7 @@ enum ActionItemStatus {
 enum AIInvocationPurpose {
   CAPTURE_SUMMARY
   PREP_DIGEST
+  SURFACE_ANALYSIS
 }
 
 // A single Capture event between a Support Partner and a Member — the raw
@@ -261,11 +264,12 @@ model Interaction {
   createdAt                 DateTime      @default(now()) @map("created_at")
   updatedAt                 DateTime      @updatedAt @map("updated_at")
 
-  member         MemberProfile         @relation(fields: [memberId], references: [id])
-  supportPartner SupportPartnerProfile @relation(fields: [supportPartnerId], references: [id])
-  summary        InteractionSummary?
-  actionItems    ActionItem[]
-  aiInvocations  AIInvocationLog[]
+  member           MemberProfile         @relation(fields: [memberId], references: [id])
+  supportPartner   SupportPartnerProfile @relation(fields: [supportPartnerId], references: [id])
+  summary          InteractionSummary?
+  actionItems      ActionItem[]
+  aiInvocations    AIInvocationLog[]
+  reviewQueueItems ReviewQueueItem[]
 
   @@index([memberId])
   @@index([supportPartnerId])
@@ -299,9 +303,10 @@ model ActionItem {
   createdAt     DateTime         @default(now()) @map("created_at")
   updatedAt     DateTime         @updatedAt @map("updated_at")
 
-  interaction Interaction   @relation(fields: [interactionId], references: [id])
-  member      MemberProfile @relation(fields: [memberId], references: [id])
-  owner       User          @relation(fields: [ownerId], references: [id])
+  interaction      Interaction       @relation(fields: [interactionId], references: [id])
+  member           MemberProfile     @relation(fields: [memberId], references: [id])
+  owner            User              @relation(fields: [ownerId], references: [id])
+  reviewQueueItems ReviewQueueItem[]
 
   @@index([memberId])
   @@map("action_items")
@@ -330,4 +335,73 @@ model AIInvocationLog {
   @@index([interactionId])
   @@index([memberId])
   @@map("ai_invocation_logs")
+}
+
+// Config-driven, per docs/plan.md — an org's own safety-keyword list is
+// data managed at /admin/settings, never a hardcoded array in the rule
+// engine. safetyKeywords.ts reads this table, nothing else.
+model OrgSafetyKeyword {
+  id        String       @id @default(uuid())
+  orgId     String       @map("org_id")
+  keyword   String
+  severity  FlagSeverity
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+  @@map("org_safety_keywords")
+}
+
+enum FlagType {
+  SAFETY_KEYWORD
+  MISSED_FOLLOW_UP
+  BOUNDARY_BREACH
+  LLM_FLAGGED
+}
+
+enum FlagSource {
+  RULE_ENGINE
+  LLM
+}
+
+enum FlagSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// OPEN is the only status a flag can be created with — only a Lead's
+// action in Sprint 6 (resolveReviewItem/escalateReviewItem) moves it to
+// RESOLVED/ESCALATED. Surface (this sprint) only ever creates, never
+// transitions, a ReviewQueueItem — the same "AI/automation proposes,
+// human decides" boundary as everywhere else in the Continuity Engine.
+model ReviewQueueItem {
+  id             String            @id @default(uuid())
+  memberId       String            @map("member_id")
+  interactionId  String?           @map("interaction_id")
+  actionItemId   String?           @map("action_item_id")
+  flagType       FlagType          @map("flag_type")
+  flagSource     FlagSource        @map("flag_source")
+  severity       FlagSeverity
+  rationale      String
+  status         ReviewQueueStatus @default(OPEN)
+  resolutionNote String?           @map("resolution_note")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  member      MemberProfile @relation(fields: [memberId], references: [id])
+  interaction Interaction?  @relation(fields: [interactionId], references: [id])
+  actionItem  ActionItem?   @relation(fields: [actionItemId], references: [id])
+
+  @@index([memberId])
+  @@index([status])
+  @@map("review_queue_items")
+}
+
+enum ReviewQueueStatus {
+  OPEN
+  RESOLVED
+  ESCALATED
 }

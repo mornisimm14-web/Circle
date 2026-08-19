@@ -18,9 +18,16 @@ import {
   PREP_DIGEST_SYSTEM_PROMPT,
   buildPrepDigestUserPrompt,
 } from "@/server/continuity-engine/llm/prompts/prepDigest";
+import {
+  SURFACE_ANALYSIS_SYSTEM_PROMPT,
+  buildSurfaceAnalysisUserPrompt,
+  surfaceAnalysisSchema,
+  type SurfaceAnalysisResult,
+} from "@/server/continuity-engine/llm/prompts/surfaceAnalysis";
 
 const CAPTURE_SUMMARY_MODEL = "claude-opus-5";
 const PREP_DIGEST_MODEL = "claude-opus-5";
+const SURFACE_ANALYSIS_MODEL = "claude-opus-5";
 
 export class LLMNotConfiguredError extends Error {
   constructor() {
@@ -88,5 +95,36 @@ export async function generatePrepDigest(params: {
     model: response.model,
     promptText: `[system]\n${PREP_DIGEST_SYSTEM_PROMPT}\n\n[user]\n${userPrompt}`,
     responseText: digest,
+  };
+}
+
+export async function generateSurfaceAnalysis(
+  summaryContent: string,
+): Promise<{ result: SurfaceAnalysisResult; model: string; promptText: string; responseText: string }> {
+  if (!env.ANTHROPIC_API_KEY) throw new LLMNotConfiguredError();
+
+  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  const userPrompt = buildSurfaceAnalysisUserPrompt(summaryContent);
+
+  const response = await client.messages.parse({
+    model: SURFACE_ANALYSIS_MODEL,
+    max_tokens: 1024,
+    thinking: { type: "adaptive" },
+    system: SURFACE_ANALYSIS_SYSTEM_PROMPT,
+    messages: [{ role: "user", content: userPrompt }],
+    output_config: { format: zodOutputFormat(surfaceAnalysisSchema) },
+  });
+
+  if (!response.parsed_output) {
+    throw new Error("Claude returned no parsable output for surface analysis");
+  }
+
+  const textBlock = response.content.find((block) => block.type === "text");
+
+  return {
+    result: response.parsed_output,
+    model: response.model,
+    promptText: `[system]\n${SURFACE_ANALYSIS_SYSTEM_PROMPT}\n\n[user]\n${userPrompt}`,
+    responseText: textBlock?.type === "text" ? textBlock.text : JSON.stringify(response.parsed_output),
   };
 }

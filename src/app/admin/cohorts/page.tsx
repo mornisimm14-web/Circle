@@ -24,7 +24,15 @@ export default async function CohortsPage() {
   const cohorts = scope ? await listCohorts(scope) : [];
 
   return (
-    <DashboardShell title="Cohorts" userName={session.user.name} roleLabel="Org Admin">
+    <DashboardShell
+      title="Cohorts"
+      userName={session.user.name}
+      roleLabel="Org Admin"
+      nav={[
+        { label: "Cohorts", href: "/admin/cohorts" },
+        { label: "Settings", href: "/admin/settings" },
+      ]}
+    >
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
         <div className="flex flex-col gap-4">
           {cohorts.length === 0 && (
